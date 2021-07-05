@@ -1,0 +1,421 @@
+---
+title: "ESAME FONDAMENTI DI SCIENZA DEI DATI E LABORATORIO"
+author: "Ibrahime Ndoye"
+output:
+  ioslides_presentation:
+    css: ./style.css
+    incremental: yes
+  slidy_presentation:
+    incremental: yes
+  beamer_presentation:
+    incremental: yes
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE, message = FALSE, warning = FALSE)
+```
+
+## Analisi della popolarità dei videogames nelle varie popolazioni 
+
+I primi videogiochi nacquero negli anni 50diventando famosi poi durante gli anni 70 e 80
+con l'introduzione dei videogiochi arcade e delle prime console. Tuttavia, l'industria ha subito un calo all'inizio degli anni '80 quando la concorrenza divenne intensa.
+
+Lo scopo di questo progetto è studiare lo sviluppo dell'industria dei videogiochi dal 1980 al 2017 cercando di comprendere quali sono i giochi più popolari in base anche alle varie popolazioni.
+
+```{r include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(tidyr)
+
+Games <- read_csv("C:/Users/ibrah/OneDrive/Desktop/Fondamenti Di Scienza dei dati/Video_Games_Sales_as_at_22_Dec_2016.csv")
+Games <- data.frame(Games)
+
+```
+
+<!-- Data Cleaning 
+Rimuovo i dati nulli e inutili e semplifico i nomi delle varie industrie ad esempio, "Sony Computer Entertainment", "Sony Computer Entertainment America", "Sony Computer Entertainment
+Europe" diventano "Sony".-->
+
+```{r echo = FALSE}
+Games$Rating<-NULL
+Games$Critic_Score<-NULL
+Games$Critic_Count<-NULL
+Games$User_Count<-NULL
+Games$User_Score<-NULL
+Games <- filter(Games, !is.na(Name))
+Games$Publisher_Company <- Games$Publisher
+Games$Publisher_Company <- sub("^Electronic Arts.*", "Electronic Arts", Games$Publisher_Company)
+Games$Publisher_Company <- sub("^Activision.*", "Activision", Games$Publisher_Company) 
+Games$Publisher_Company <- sub("^Sony.*", "Sony", Games$Publisher_Company) 
+Games$Publisher_Company <- sub("^Ubisoft.*", "Ubisoft", Games$Publisher_Company) 
+Games$Publisher<-NULL
+
+
+```
+## Le case editoriali
+
+Le case editoriali sono iniziate ad emergere dall'inizio degli anni '80. Nel nostro set di dati, ci sono 582 case editrici in totale e qui ci sono le prime 10 in base alle loro vendite globali totali.
+
+
+```{r echo = FALSE}
+Sales_per_publisher <- Games %>%
+                        group_by(Publisher_Company) %>%
+                        summarise(ttl_sales = sum(Global_Sales)) %>%
+                        arrange(desc(ttl_sales))
+Top10_Sales_publisher <- Sales_per_publisher[1:10,]
+
+Top10_Sales_publisher$Publisher_Company <- factor(Top10_Sales_publisher$Publisher_Company,
+levels = rev(Top10_Sales_publisher$Publisher_Company[order(Top10_Sales_publisher$ttl_sales)]),ordered = TRUE)
+Top10 <- ggplot(Top10_Sales_publisher) + 
+  geom_bar(aes(x = reorder(Publisher_Company,ttl_sales),y = ttl_sales, fill = Publisher_Company),stat = "identity")
+Top10 + labs(x = "Publishers", y = "Total Global Sales") +
+theme(legend.position = "none") + coord_flip()
+
+```
+
+## Giochi usciti ogni anno dei top 5 editori
+
+Tra i primi 5 editori, Ubisoft ha avuto il picco più elevato alla fine degli anni 2000. Anche Electronic Arts ha registrato un picco durante quel periodo. Erano giovani rispetto ad altri grandi editori. Ma come mai proprio nel 2000 questa variazione così significante?
+
+Attraverso alcune ricerche online, ho notato che Nintendo e Sony sono due dei primi 3 produttori di console (il terzo è Microsoft con l'xbox). Ci sono totalmente 17 piattaforme nel nostro dataset. In base al numero di giochi rilasciati su ciascuna piattaforma, 9 delle prime 10 piattaforme sono sviluppate da Nintendo, Sony e Microsoft. 
+```{r echo = FALSE}
+
+top5 <- Games %>% 
+filter(Publisher_Company %in% c("Nintendo","Electronic Arts","Sony","Ubisoft",
+"Activision"), Year_of_Release != "N/A", Year_of_Release < 2017) %>%
+ group_by(Publisher_Company,Year_of_Release) %>% 
+ summarise(num_of_games = n_distinct(Name))
+ 
+top5$year <- as.numeric(as.character(top5$Year_of_Release))
+
+top5$Publisher_Company <- factor(top5$Publisher_Company, levels = c("Nintendo", "Electronic Arts", "Activision", "Sony", "Ubisoft"),
+ordered = TRUE)
+
+ggplot(top5) +
+ geom_line(aes(x=year, y=num_of_games,color = Publisher_Company),stat = 'identity')+
+ labs(x = "Year", y = "Number of Games")
+ 
+```
+
+
+
+```{r echo = FALSE}
+top_games_released<-Games %>%
+  group_by(Platform)  %>%
+  summarise(,n = n())  %>%
+  arrange(desc(n)) %>% 
+head(15)
+ggplot(top_games_released) +
+  geom_point(aes(x=reorder(Platform,n), y=n),fill="blue",stat = "identity")+theme(legend.position = "none")+
+  labs(x="Platform", y= "Games per platform")
+```
+
+Sony ha rilasciato PS2 e PS3 nel 2000 e nel 2006. Nintendo ha rilasciato DS e Wii nel 2004 e nel 2006. PS2, PS3, DS e Wii sono elencati come le 4 migliori piattaforme di sempre! Tornando alle domande che avevamo, il motivo principale del ritardo di sviluppo per i giovani editori potrebbe essere che Sony e Nintendo hanno lanciato nuove piattaforme e rilasciato un sacco di nuovi giochi su di esse. Entro 3 anni, altri editori hanno seguito la tendenza a sviluppare più nuovi giochi su di essi e ha generato una fioritura per l'industria! I seguenti risultati per Ubisoft ed Electronic Arts mostrano il numero di giochi lanciati su PS2, PS3, DS e Wii rispettivamente dal 2000 al 2010, seguiti dalle loro percentuali sui giochi totali.
+
+## Ubisoft e Electronic arts
+Dai grafici sottostanti si comprende che dal 2001 in poi, Ubisoft e Electronic arts hanno aumentato il numero di giochi disponibili su queste quattro nuove piattaforme.
+
+```{r echo = FALSE}
+Ubisoft <- Games %>% 
+  filter(Publisher_Company == "Ubisoft", Year_of_Release >= 2000, Year_of_Release <= 2010) %>%
+  group_by(Year = Year_of_Release)  %>%  
+  summarise(Total= n()) 
+  ggplot(data = Ubisoft, aes(x=Year, y= Total))+ 
+    geom_bar(fill= "steelblue",stat = "identity")+
+    theme_classic()
+           
+EA<-Games %>%
+  filter(Publisher_Company == "Electronic Arts", Year_of_Release >= 2000, Year_of_Release <= 2010) %>%
+  group_by(Year = Year_of_Release)  %>%  
+  summarise(Total= n()) 
+  ggplot(data = EA, aes(x=Year, y= Total))+
+    geom_bar(fill= "red",stat = "identity")+
+    theme_classic()
+```
+
+## Generi più famosi per gli editori più famosi
+Ora, analizzeremo i primi 5 editori e vedremo i loro primi 3 generi e i primi 10 giochi più popolari.
+
+## Nintendo
+Gli wii sports sono stati un enorme successo per Nintendo. E i giochi "Mario" sono 5 dei 10 giochi più popolari. 
+
+```{r echo = FALSE}
+Nintendo_sales_Genre_Name <- Games %>%
+                        filter(Publisher_Company == "Nintendo", Genre != "Misc") %>%
+                        group_by(Genre,Name)  %>%
+                        summarise(sales = sum(Global_Sales)) %>%
+                        arrange(desc(sales)) %>% 
+                        head(10)
+ggplot(Nintendo_sales_Genre_Name)+
+  geom_bar(aes(x=reorder(Name,sales),y=sales,fill=Genre ), stat = "identity")+
+  labs("Name","Sales")+
+  theme_light()+
+  coord_flip()
+
+Nintendo_sales_Genre <- Games %>%
+                  filter(Publisher_Company == "Nintendo", Genre != "Misc") %>%
+                  group_by(Genre)  %>%
+                  summarise(sales = sum(Global_Sales)) %>%
+                  arrange(desc(sales)) %>%
+                  mutate(p_sales = sales/sum(sales)*100)
+
+NSG<- ggplot(Nintendo_sales_Genre, aes(x="", y=p_sales, fill=Genre))+
+geom_bar(width = 1, stat = "identity")
+pie <- NSG + coord_polar("y", start=0)+
+  geom_text(aes(label=paste0(round(p_sales),"%")),position = position_stack(vjust = 0.5))
+pie
+
+```
+
+## Electronic Arts
+I giochi sportivi coprono più del 40% delle vendite di quest'azienda 
+
+```{r echo = FALSE}
+
+EA_sales_Genre_Name <- Games %>%
+  filter(Publisher_Company == "Electronic Arts", Genre != "Misc") %>%
+  group_by(Genre,Name)  %>%
+  summarise(sales = sum(Global_Sales)) %>%
+  arrange(desc(sales)) %>% 
+  head(10)
+ggplot(EA_sales_Genre_Name)+
+  geom_bar(aes(x=reorder(Name,sales),y=sales,fill=Genre ), stat = "identity")+
+  labs("Name","Sales")+
+  theme_classic()+
+  coord_flip()
+
+EA_sales_Genre <- Games %>%
+  filter(Publisher_Company == "Electronic Arts", Genre != "Misc") %>%
+  group_by(Genre)  %>%
+  summarise(sales = sum(Global_Sales)) %>%
+  arrange(desc(sales)) %>%
+  mutate(p_sales = sales/sum(sales)*100)
+
+EAP<- ggplot(EA_sales_Genre, aes(x="", y=p_sales, fill=Genre))+
+geom_bar(width = 1, stat = "identity")
+pie <- EAP + coord_polar("y",start = 0)+
+  geom_text(aes(label=paste0(round(p_sales),"%")),position = position_stack(vjust = 0.5))
+pie
+  
+```
+
+## Activision
+Quasi della metà degli incassi di questa azienda sono dovuti alla serie call of duty(serie principalmente sparatutto)
+
+```{r echo = FALSE}
+
+Activision_sales_Genre_Name <- Games %>%
+  filter(Publisher_Company == "Activision", Genre != "Misc") %>%
+  group_by(Genre,Name)  %>%
+  summarise(sales = sum(Global_Sales)) %>%
+  arrange(desc(sales)) %>% 
+  head(10)
+  ggplot(Activision_sales_Genre_Name)+
+  geom_bar(aes(x=reorder(Name,sales),y=sales,fill=Genre,), stat = "identity")+
+  labs(x="Name",y="Sales")+
+  coord_flip()
+  
+  
+  Activision_sales_Genre <- Games %>%
+  filter(Publisher_Company == "Activision", Genre != "Misc") %>%
+  group_by(Genre)  %>%
+  summarise(sales = sum(Global_Sales)) %>%
+  arrange(desc(sales)) %>%
+  mutate(p_sales = sales/sum(sales)*100)
+CODP<- ggplot(Activision_sales_Genre, aes(x="", y=p_sales, fill=Genre))+
+geom_bar(width = 1, stat = "identity")
+pie <- CODP + coord_polar("y", start=0)+
+  geom_text(aes(label=paste0(round(p_sales),"%")),position = position_stack(vjust = 0.5))
+pie
+```
+
+## Sony
+Sony ha incassato il 21% del loro guadagno da gran turismo(racing) 
+
+```{r echo = FALSE}
+
+Sony_sales_Genre_Name <- Games %>%
+  filter(Publisher_Company == "Sony", Genre != "Misc") %>%
+  group_by(Genre,Name)  %>%
+  summarise(sales = sum(Global_Sales)) %>%
+  arrange(desc(sales)) %>% 
+  head(10)
+  ggplot(Sony_sales_Genre_Name)+
+  geom_bar(aes(x=reorder(Name,sales),y=sales,fill=Genre,), stat = "identity")+
+  labs(x="Name",y="Sales")+
+  coord_flip()
+  
+  Sony_sales_Genre <- Games %>%
+  filter(Publisher_Company == "Sony", Genre != "Misc") %>%
+  group_by(Genre)  %>%
+  summarise(sales = sum(Global_Sales)) %>%
+  arrange(desc(sales)) %>%
+  mutate(p_sales = sales/sum(sales)*100)
+SSG<- ggplot(Sony_sales_Genre, aes(x="", y=p_sales, fill=Genre))+
+geom_bar(width = 1, stat = "identity")
+pie <- SSG + coord_polar("y", start=0)+
+  geom_text(aes(label=paste0(round(p_sales),"%")),position = position_stack(vjust = 0.5))
+pie
+
+```
+
+## Ubisoft
+Grazie alla serie Assassin's creed i giochi più giocati della ubisoft sono i giochi d'azione con il 39% degli incassi 
+```{r echo = FALSE}
+
+
+Ubisoft_sales_Genre_Name <- Games %>%
+  filter(Publisher_Company == "Ubisoft", Genre != "Misc") %>%
+  group_by(Genre,Name)  %>%
+  summarise(sales = sum(Global_Sales)) %>%
+  arrange(desc(sales))%>% 
+  head(10)
+  ggplot(Ubisoft_sales_Genre_Name)+
+  geom_bar(aes(x=reorder(Name,sales),y=sales,fill=Genre,), stat = "identity")+
+  labs(x="Name",y="Sales")+
+  coord_flip()
+  
+  
+  Ubisoft_sales_Genre <- Games %>%
+  filter(Publisher_Company == "Ubisoft", Genre != "Misc") %>%
+  group_by(Genre)  %>%
+  summarise(sales = sum(Global_Sales)) %>%
+  arrange(desc(sales)) %>%
+  mutate(p_sales = sales/sum(sales)*100)
+UBI<- ggplot(Ubisoft_sales_Genre, aes(x="", y=p_sales, fill=Genre))+
+geom_bar(width = 1, stat = "identity")
+pie <- UBI + coord_polar("y", start=0)+
+  geom_text(aes(label=paste0(round(p_sales),"%")),position = position_stack(vjust = 0.5))
+pie
+```
+
+
+## Conclusioni sui mercati delle case editrici
+Come abbiamo visto i cinque editori più conosciuti hanno tutti le loro famose serie di giochi che possiedono almeno 5 delle posizioni dei primi 10 giochi più famosi dell'azienda. Un marchio di giochi, come quello di Nintendo "Mario", può essere sviluppato su varie piattaforme come giochi diversi. Rispetto alla Top 5 dei publisher, Activision e Ubisoft sono più focalizzati su uno specifico marchio di gioco e su un genere tipico.
+
+
+## Il genere più popolare
+Vediamo qual è il genere più popolare per ogni anno in base alle vendite globali totali e al numero di giochi rilasciati.
+Abbiamo combinato due matrici perché le vendite globali totali nel nostro set di dati sono cumulative e non conosciamo il numero esatto di
+vendite per ogni anno, quindi abbiamo utilizzato il numero di giochi rilasciati per genere per raggiungere il risultato voluto.
+
+
+## Il genere più popolare in base alle vendite globali totali
+```{r echo = FALSE}
+Games %>%
+  group_by (Year_of_Release, Genre)  %>%
+  summarise(Top_Sales_Genre = sum(Global_Sales))  %>%
+  arrange(Year_of_Release, desc(Top_Sales_Genre)) %>%
+  filter(Year_of_Release != "N/A", Year_of_Release < 2017)  -> Year_Genre 
+  
+as.numeric(as.character(Year_Genre$Year_of_Release)) -> Year_Genre$Year_of_Release
+
+df0 <- NULL
+
+for (p in (unique(Year_Genre$Year_of_Release))){
+  df <- Year_Genre %>%
+            filter(Year_of_Release == p, Top_Sales_Genre == max(Top_Sales_Genre))
+  df0 <- rbind(df0, df)
+}  
+
+ggplot(df0) +
+  geom_bar(aes(x = Year_of_Release, y = Top_Sales_Genre, fill = Genre), stat = "identity")+
+  labs(x = "Year", y = "1st Genre Based on the Global Sales") 
+
+```
+
+
+Come possiamo facilmente intuire dal grafico il genere più venduto a livello globale é il genere d'azione
+
+
+
+## Il genere più giocato in base al numero di giochi lanciati
+
+
+```{r echo = FALSE}
+Games%>%
+  filter(Year_of_Release != "N/A", Year_of_Release < 2017) %>%
+  group_by(Year_of_Release, Genre)  %>%
+  summarise(Genre_Year_Games = n()) %>%
+  group_by(Year_of_Release)  %>%
+  filter(Genre_Year_Games ==max(Genre_Year_Games))  %>%
+  select(Year_of_Release, Genre, Genre_Year_Games)  %>%
+  arrange((Year_of_Release))  -> Year_Genre_Games
+  
+as.numeric(as.character(Year_Genre_Games$Year_of_Release)) -> Year_Genre_Games$Year_of_Release  
+
+ggplot(Year_Genre_Games) +
+  geom_bar(aes(x = Year_of_Release, y = Genre_Year_Games, fill = Genre), stat = "identity")+
+  labs(x = "Year", y = "NUmero di giorchi lanciati") 
+```
+
+Naturalmente anche in questo grafico i giochi d'azione sono di gran lunga i più gettonati rispetto agli altri generi, preceduti da un dominio dei giochi di "sport" grazie all'uscita del gioco Wii sports nel 2006 che ha raggiunto vendite straordinarie per arrivare fino a 81.6 milioni.
+
+
+## Analisi dei vari generi in base alle varie popolazioni offerte dal dataset
+Infine ho calcolato e confrontato la distribuzione percentuale dei vari generi per il Nord America, l'Europa e  il Giappone.
+
+```{r echo = FALSE}
+NAsales_Genre <- Games %>%
+  group_by(Genre)  %>%
+  filter(Genre != "Misc") %>%
+  summarise(NAsales = sum(NA_Sales))  %>%
+  arrange(desc(NAsales)) %>%
+  mutate(p_NASales = NAsales/sum(NAsales)*100) %>%
+  arrange(desc(p_NASales))
+
+EUsales_Genre <- Games %>%
+  group_by(Genre)  %>%
+  filter(Genre != "Misc") %>%
+  summarise(EUsales = sum(EU_Sales))  %>%
+  arrange(desc(EUsales)) %>%
+  mutate(p_EUSales = EUsales/sum(EUsales)*100)
+
+JPsales_Genre <- Games %>%
+  group_by(Genre)  %>%
+  filter(Genre != "Misc") %>%
+  summarise(JPsales = sum(JP_Sales))  %>%
+  arrange(desc(JPsales)) %>%
+  mutate(p_JPSales = JPsales/sum(JPsales)*100)
+
+merge(NAsales_Genre, EUsales_Genre, by = "Genre") ->t
+
+merge(t, JPsales_Genre, by = "Genre") -> Genre_Region
+
+Genre_Region$NAsales <- NULL
+Genre_Region$EUsales <- NULL
+Genre_Region$JPsales <- NULL
+
+Genre_Region_long <- gather(Genre_Region, Region, Percentage_Region, p_NASales:p_JPSales, factor_key=TRUE)
+
+Genre_Region_long$Genre <- factor(Genre_Region_long$Genre, 
+                                  levels = c("Strategy", "Adventure", "Puzzle","Simulation",
+                                             "Fighting", "Role-Playing", "Racing", "Platform",
+                                             "Shooter", "Sports", "Action"), ordered = TRUE)
+
+names <- c("p_NASales" = "North America Sales", 
+           "p_EUSales" = "Europe Sales", 
+           "p_JPSales" = "Japan Sales")  
+ggplot(Genre_Region_long) +
+  geom_bar(aes(x= Genre, y = Percentage_Region, fill = Genre), stat = "identity") +
+  facet_grid(~Region, labeller = as_labeller(names))+
+  labs(x = "Percentage Distribution by Region", y = "Genre") +
+  coord_flip()+
+  guides(fill=FALSE)
+
+
+```
+
+I modelli per il Nord America e l'Europa sono molto simili,entrambi hanno Azione, Sport e Sparatutto tra i primi 3 generi.
+A differenza del mercato giapponese invece dove il Role-Playing ottiene la quota maggiore nelle vendite,
+oltre il doppio delle vendite dei giochi d'azione, che è classificato come il secondo. Sorprendentemente, gli shooters game, il terzo
+genere più popolare in Nord America e in Europa, si classifica come gioco meno popolare in Giappone!
+
+## Conclusioni
+
+
+In sintesi, i giochi di azione e sport sono popolari in tutto il mondo. Gli sparatutto potrebbero non avere molte
+opportunità in Giappone al contrario dei giochi di ruolo che sono di gran lunga i più giocati dalla nazione asiatica quindi nel caso una neo-azienda del settore volesse progettare un nuovo video game sarebbe più sicuro puntare su un gioco di azione.
